@@ -23,7 +23,7 @@ app.post('/api/auth/login', async (req, res) => {
         console.log(email, senha);
 
         const [rows] = await pool.query(
-            'SELECT id, email, senha_hash FROM usuarios AS u WHERE email = ? LIMIT 1',
+            'SELECT id, email, senha_hash FROM usuarios AS u WHERE email = ? AND ativo = 1 LIMIT 1',
             [email]
         );
 
