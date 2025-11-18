@@ -20,22 +20,17 @@ app.post('/api/auth/login', async (req, res) => {
         if (!email || !senha) {
             return res.status(400).json({ ok: false, error: 'Manda o email e a senha, jumento' });
         }
-        console.log(email, senha);
 
         const [rows] = await pool.query(
-            'SELECT id, email, senha_hash FROM usuarios AS u WHERE email = ? AND ativo = 1 LIMIT 1',
+            'SELECT id, nome, email, senha_hash FROM usuarios AS u WHERE email = ? AND ativo = 1 LIMIT 1',
             [email]
         );
-
-        console.log(rows);
-
 
         if (rows.length < 1) {
             return res.status(422).json({ ok: false, error: 'Tu nem existe' });
         }
 
         const user = rows[0];
-        console.log(user);
 
         const senhaConfere = await bcrypt.compare(senha, user.senha_hash);
         if (!senhaConfere) {
@@ -54,6 +49,7 @@ app.post('/api/auth/login', async (req, res) => {
             token: token,
             user: {
                 id: user.id,
+                nome: user.nome,
                 email: user.email,
             },
         });
@@ -196,22 +192,22 @@ app.post('/api/financas/registrar', authMiddleware, async (req, res) => {
 
         if (categoria_id) {
             const categoria = await pool.query("SELECT id FROM categorias WHERE id = ? AND usuario_id = ? LIMIT 1", [categoria_id, user_id]);
-            if (categoria.length < 1) return res.status(422).json({ "ok": false, "msg": "Não existe essa categoria, ao menos não pra você, seu bosta!" });
+            if (categoria.length < 1) return res.status(422).json({ "ok": false, error: "Não existe essa categoria, ao menos não pra você, seu bosta!" });
         }
 
         if (forma_pagamento_id) {
             const formPaga = await pool.query("SELECT id FROM formas_pagamento WHERE id = ? AND usuario_id = ? LIMIT 1", [forma_pagamento_id, user_id]);
-            if (formPaga.length < 1) return res.status(422).json({ "ok": false, "msg": "Não existe essa forma de pagamento, tá querendo me enganar?" });
+            if (formPaga.length < 1) return res.status(422).json({ "ok": false, error: "Não existe essa forma de pagamento, tá querendo me enganar?" });
         }
 
         const conta = await pool.query("SELECT id FROM contas WHERE id = ? AND usuario_id = ? LIMIT 1", [conta_id, user_id]);
-        if (conta.length < 1) return res.status(422).json({ "ok": false, "msg": "Se essa conta existir, não é sua! Sai daqui, menó!" });
+        if (conta.length < 1) return res.status(422).json({ "ok": false, error: "Se essa conta existir, não é sua! Sai daqui, menó!" });
 
-        if (!['entrada', 'saida'].includes(tipo)) return res.status(422).json({ "ok": false, "msg": "Se tu não tá adicionando nem retirando, ta fazendo o que? Hã?!" });
+        if (!['entrada', 'saida'].includes(tipo)) return res.status(422).json({ "ok": false, error: "Se tu não tá adicionando nem retirando, ta fazendo o que? Hã?!" });
 
-        if (valor < 1) return res.status(422).json({ "ok": false, "msg": "Irmão, não tem valor negativo e nem 0... se você gastou, passa o valor e diz que tirou, só isso..." });
+        if (valor < 1) return res.status(422).json({ "ok": false, error: "Irmão, não tem valor negativo e nem 0... se você gastou, passa o valor e diz que tirou, só isso..." });
 
-        if (descricao.length < 1) return res.status(422).json({ "ok": false, "msg": "Não existe gasto sem descrição..." });
+        if (descricao.length < 1) return res.status(422).json({ "ok": false, error: "Não existe gasto sem descrição..." });
 
         const [lancamentos] = await pool.query(`SELECT saldo_apos FROM lancamentos WHERE usuario_id = ? AND saldo_apos IS NOT NULL AND apagado_em IS NULL ORDER BY data_movimento DESC LIMIT 1`, [user_id]);
 
@@ -238,7 +234,7 @@ app.post('/api/financas/registrar', authMiddleware, async (req, res) => {
     } catch (err) {
 
         console.error("Deu bosta no registro" + err);
-        return res.status(422).json({ "ok": false, "msg": "Deu bosta do lado de cá." });
+        return res.status(422).json({ "ok": false, error: "Deu bosta do lado de cá." });
     }
 });
 
@@ -284,7 +280,46 @@ app.post('/api/financas/deletar', authMiddleware, async (req, res) => {
 
     } catch (err) {
         console.error("Deu bosta ao apagar" + err);
-        return res.status(422).json({ "ok": false, "msg": "Deu bosta do lado de cá." });
+        return res.status(422).json({ "ok": false, error: "Deu bosta do lado de cá." });
+    }
+});
+
+app.post('/api/financas/categoria', authMiddleware, async (req, res) => {
+    try {
+        const { categoria } = req.body;
+        const user_id = req.user.id;
+
+        await pool.query(`INSERT INTO categorias (nome, usuario_id) VALUE (?, ?) `, [categoria, user_id]);
+        return res.status(422).json({ "ok": true, "msg": "Tá feito, meu truta 😎" });
+    } catch (error) {
+        console.error('Erro registro categoria: ' + error);
+        return res.status(422).json({ "ok": false, error: "Deu bosta do lado de cá." });
+    }
+});
+
+app.post('/api/financas/conta', authMiddleware, async (req, res) => {
+    try {
+        const { conta, descricao } = req.body;
+        const user_id = req.user.id;
+
+        await pool.query(`INSERT INTO contas (nome, descricao, usuario_id) VALUE (?, ?, ?) `, [conta, descricao, user_id]);
+        return res.status(422).json({ "ok": true, "msg": "Tá feito, meu truta 😎" });
+    } catch (error) {
+        console.error('Erro registro categoria: ' + error);
+        return res.status(422).json({ "ok": false, error: "Deu bosta do lado de cá." });
+    }
+});
+
+app.post('/api/financas/forma_pagamento', authMiddleware, async (req, res) => {
+    try {
+        const { forma_pagamento } = req.body;
+        const user_id = req.user.id;
+
+        await pool.query(`INSERT INTO formas_pagamento (nome, usuario_id) VALUE (?, ?) `, [forma_pagamento, user_id]);
+        return res.status(422).json({ "ok": true, "msg": "Tá feito, meu truta 😎" });
+    } catch (error) {
+        console.error('Erro registro categoria: ' + error);
+        return res.status(422).json({ "ok": false, error: "Deu bosta do lado de cá." });
     }
 });
 

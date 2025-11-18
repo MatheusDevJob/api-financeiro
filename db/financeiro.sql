@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS `categorias` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
   `usuario_id` int unsigned NOT NULL,
   `nome` varchar(100) NOT NULL,
-  `tipo_padrao` enum('entrada','saida') NOT NULL,
+  `tipo_padrao` enum('entrada','saida'),
   `criado_em` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `fk_categorias_usuario` (`usuario_id`),
